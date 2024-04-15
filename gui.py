@@ -115,10 +115,10 @@ class Orders:
         selected_items = self.my_tree.selection()
         for selected_item in selected_items:
             values = self.my_tree.item(selected_item, "values")
-            self.cart = [item for item in self.cart if int(item["id"]) != int(values[3])]
+            self.cart = [item for item in self.cart if int(item["id"]) != int(values[5])]
             for item in self.products_tmp:
-                if int(item[0]) == int(values[3]):
-                    item[6] = item[6] + float(values[2])
+                if int(item[0]) == int(values[5]):
+                    item[6] = item[6] + float(values[3])
             self.my_tree.delete(selected_item)
 
     def validate(self):
@@ -171,7 +171,7 @@ class Orders:
                     price_tax = price_tax + (price / 100) if item["stamp_tax_at_order_time"] is True else price_tax
                     self.my_tree.insert(parent='', index='end', text='',
                                         values=(price_tax, price, item["price_at_order_time"], item["quantity"],
-                                                f"{item["product_name"]} - {item["product_category"]}"))
+                                                f"{item["product_name"]} - {item["product_category"]}", item["id"]))
 
     def clean_data(self):
         self.my_tree.delete(*self.my_tree.get_children())
