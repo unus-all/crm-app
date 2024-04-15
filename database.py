@@ -32,16 +32,17 @@ class Database:
         # Order table
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_id INTEGER, order_date TEXT, order_status INTEGER, FOREIGN KEY (customer_id) REFERENCES customers(id)
+        customer_id INTEGER, order_date TEXT, order_status INTEGER, updated_at TEXT,
+        FOREIGN KEY (customer_id) REFERENCES customers(id)
         )""")
         self.connection.commit()
 
         # OrderItems table
         cursor.execute("""CREATE TABLE IF NOT EXISTS order_items(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_id INTEGER, product_id INTEGER, quantity REAL, price_at_order_time REAL, vat_tax_at_order_time INTEGER,
-        stamp_tax_at_order_time INTEGER, 
-        FOREIGN KEY (order_id) REFERENCES orders(id), FOREIGN KEY (product_id) REFERENCES products(id)
+        order_id INTEGER, product_name TEXT, product_category TEXT, quantity REAL, price_at_order_time REAL,
+        vat_tax_at_order_time REAL, stamp_tax_at_order_time REAL, 
+        FOREIGN KEY (order_id) REFERENCES orders(id)
         )""")
 
     def add_customer(self, data):
@@ -76,7 +77,31 @@ class Database:
             return "حدث خطأ أثناء إضافة السلعة"
 
     def add_order(self, data):
-        pass
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("""
+                        INSERT INTO orders (customer_id, order_date, order_status, updated_at) 
+                        VALUES (?, ?, ?, datetime('now'))
+                    """, (data["customer_id"], data["order_date"], data["order_status"]))
+
+            current_id = cursor.lastrowid
+
+            for item in data["cart"]:
+                vat_tax = item["quantity"]*item["price_at_order_time"]*item["vat_tax_at_order_time"]/100
+                stamp_tax = item["quantity"]*item["price_at_order_time"]/100 if item["stamp_tax_at_order_time"] is True else 0
+                cursor.execute("""INSERT INTO order_items (order_id, product_name, product_category, quantity,
+                                        price_at_order_time, vat_tax_at_order_time, stamp_tax_at_order_time) 
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)""", (
+                                        current_id, item["product_name"], item["product_category"], item["quantity"],
+                                        item["price_at_order_time"], vat_tax, stamp_tax))
+
+            self.connection.commit()
+
+            print("Order added successfully")
+            return "تم إضافة الطلب بنجاح"
+        except Exception as e:
+            print(f"Error adding order: {e}")
+            return "حدث خطأ أثناء إضافة الطلب"
 
     def get_customers(self):
         cursor = self.connection.cursor()
@@ -129,11 +154,31 @@ class Database:
     def update_order_status(self, order_id):
         pass
 
-    def delete_customer(self, customer_id):
-        pass
+    def update_product_quantity(self, cart):
+        cursor = self.connection.cursor()
+        try:
+            for data in cart:
+                # Fetch the current available quantity
+                cursor.execute("SELECT available_quantity FROM products WHERE id = ?", (data["id"],))
+                current_quantity = cursor.fetchone()[0]
 
-    def delete_product(self, product_id):
-        pass
+                # Calculate the new available quantity by subtracting the specified quantity
+                new_quantity = max(0, current_quantity - data["quantity"])
+
+                # Update the product's available quantity
+                cursor.execute("""
+                                UPDATE products 
+                                SET available_quantity = ?, updated_at = datetime('now') 
+                                WHERE id = ?
+                            """, (new_quantity, data["id"]))
+
+            self.connection.commit()
+            print("Products updated successfully")
+            return "تم تحديث السلع بنجاح"
+
+        except Exception as e:
+            print(f"Error updating products: {e}")
+            return "حدث خطأ أثناء تحديث السلع"
 
     def delete_order(self, order_id):
         pass

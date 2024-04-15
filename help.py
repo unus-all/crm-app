@@ -28,18 +28,11 @@ def is_phone_number(text):
     return bool(re.match(r"^(05|06|07)\d{8}$", cleaned_text)) if cleaned_text != '' else True
 
 
-def is_valid_price(text):
+def is_float(text):
     # Remove extra white spaces
     cleaned_text = re.sub(r'\s+', '', text.strip())
     # Check if the cleaned text contains only digits, and optional .2d
     return bool(re.match(r"^\d+(\.\d{0,2})?$", cleaned_text))
-
-
-def is_valid_quantity(text):
-    # Remove extra white spaces
-    cleaned_text = re.sub(r'\s+', '', text.strip())
-    # Check if the cleaned text contains only digits, and optional ,2d
-    return bool(re.match(r"^\d+(\,\d{0,2})?$", cleaned_text))
 
 
 def is_number(text):
@@ -49,4 +42,8 @@ def is_number(text):
     return bool(re.match(r"^\d+$", cleaned_text))
 
 
-
+def is_reg_id(text):
+    # Remove non-alphanumeric characters except "/" and "-"
+    cleaned_text = re.sub(r'\s+', '', text)
+    # Check if the cleaned text contains only English letters, digits, "/", and "-"
+    return bool(re.match(r'^[A-Za-z0-9/-]+$', cleaned_text))

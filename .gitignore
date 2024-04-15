@@ -1,6 +1,7 @@
 # Files
 data.db
-
+test.py
 
 # Directories
 .idea/
+__pycache__/
