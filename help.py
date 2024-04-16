@@ -3,14 +3,14 @@ import re
 
 def get_orders_ids(data):
     yearly_ids = {}
-    orders = []
+    orders = {}
     for index, (order, date) in enumerate(sorted(data, key=lambda x: x[1]), start=1):
         year = date[:4]  # Extract the year from the date string
         if year not in yearly_ids:
             yearly_ids[year] = 1
         else:
             yearly_ids[year] += 1
-        orders.append((f"{year}/{yearly_ids[year]:02d}", order, date))
+        orders[order] = f"{year}/{yearly_ids[year]:02d}"
     return orders
 
 

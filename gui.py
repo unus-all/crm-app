@@ -11,8 +11,10 @@ from tkcalendar import DateEntry
 import locale
 from datetime import datetime
 
+
 class Orders:
-    def __init__(self, parent, products_list, customers_list):
+    def __init__(self, parent, products_list, customers_list, b_frame):
+        self.b_frame = b_frame
         self.cart = []
         self.customer_name_e = None
         self.date_e = None
@@ -221,6 +223,7 @@ class Orders:
                 self.update_products(db.get_products())
                 # Display success message and clean the data
                 self.clean_data()
+                self.b_frame.update_bills()
 
 
 class Products:
@@ -241,9 +244,11 @@ class Products:
         self.setup_ui()
 
     def setup_ui(self):
-        ttk.Button(self.frame, text="refresh", command=self.update_products_list).pack()
         tree_frame = ttk.Frame(self.frame)
         tree_frame.pack(fill=tk.X, expand=True, padx=20, pady=5)
+
+        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_products_list).pack(
+            pady=5, padx=20, anchor="nw")
 
         self.my_tree = ttk.Treeview(tree_frame, selectmode="extended", height=5)
         self.my_tree.pack(side=tk.RIGHT, fill=tk.X, expand=True)
@@ -275,9 +280,8 @@ class Products:
         self.my_tree.heading("quantity", anchor=tk.CENTER, text="الكمية")
         self.my_tree.heading("vat_tax", anchor=tk.CENTER, text="الضريبة المضافة")
         self.my_tree.heading("stamp_tax", anchor=tk.CENTER, text="ضريبة الطابع")
-        self.my_tree.bind('<ButtonRelease-1>', lambda event: self.select_product()
-        if self.my_tree.identify_region(event.x, event.y) != "heading" else None)
-        self.my_tree.bind('<Motion>', 'break')
+        self.my_tree.bind('<Double-1>', lambda event: self.select_product() if self.my_tree.identify_region(
+            event.x, event.y) != "heading" else None)
 
         for record in self.data:
             self.my_tree.insert(parent='', index='end', text='',
@@ -357,17 +361,15 @@ class Products:
 
     def validation(self):
         errors = []
-        if not help.is_arabic(self.product_name_e.get()):
+        if not help.is_arabic(self.product_name_e.get().strip()):
             errors.append("اسم السلعة يجب أن يكون باللغة العربية")
-        if not help.is_arabic(self.product_category_e.get()):
-            errors.append("نوع السلعة يجب أن يكون باللغة العربية")
-        if not help.is_float(self.product_price_e.get()):
+        if not help.is_float(self.product_price_e.get().strip()):
             errors.append("تحقق من أن السعر صحيح")
-        if not help.is_float(self.product_quantity_e.get()) or float(self.product_quantity_e.get()) == 0:
+        if not help.is_float(self.product_quantity_e.get().strip()) or float(self.product_quantity_e.get()) == 0:
             errors.append("تحقق من أن الكمية صحيحة")
-        if not help.is_arabic(self.product_unit_e.get()):
+        if not help.is_arabic(self.product_unit_e.get().strip()):
             errors.append("وحدة القياس يجب أن تكون باللغة العربية")
-        if not help.is_float(self.product_tva_e.get()):
+        if not help.is_float(self.product_tva_e.get().strip()):
             errors.append("الضريبة المضافة يجب أن تكون عدد حقيقي")
         return errors
 
@@ -398,19 +400,19 @@ class Products:
         if errors:
             messagebox.showerror("خطأ", "\n".join(errors), parent=self.parent)
         else:
-            if any(product[1] == self.product_name_e.get() and product[2] == self.product_category_e.get() for product
-                   in self.data):
+            if any(product[1] == self.product_name_e.get().strip() and product[2] == self.product_category_e.get().
+                    strip() for product in self.data):
                 messagebox.showwarning("تحذير", "السلعة بالاسم والنوع المدخلين موجودة بالفعل في قاعدة البيانات",
                                        parent=self.parent)
             else:
                 data = {
-                    "name": self.product_name_e.get(),
-                    "category": self.product_category_e.get(),
-                    "price": float(self.product_price_e.get()),
-                    "vat_tax": float(self.product_tva_e.get()),
-                    "stamp_tax": self.product_stamp_e.get(),
-                    "available_quantity": float(self.product_quantity_e.get()),
-                    "unit": self.product_unit_e.get()
+                    "name": self.product_name_e.get().strip(),
+                    "category": self.product_category_e.get().strip(),
+                    "price": float(self.product_price_e.get().strip()),
+                    "vat_tax": float(self.product_tva_e.get().strip()),
+                    "stamp_tax": self.product_stamp_e.get().strip(),
+                    "available_quantity": float(self.product_quantity_e.get().strip()),
+                    "unit": self.product_unit_e.get().strip()
                 }
                 msg = db.add_product(data)
                 if msg.startswith("تم"):
@@ -425,16 +427,20 @@ class Products:
         if errors:
             messagebox.showerror("خطأ", "\n".join(errors), parent=self.parent)
         else:
-            if any(str(product[0]) == self.selected_product for product in self.data):
+            if any(product[1] == self.product_name_e.get().strip() and product[2] == self.product_category_e.get().
+                    strip() and str(product[0]) != self.selected_product for product in self.data):
+                messagebox.showwarning("تحذير", "السلعة بالاسم والنوع المدخلين موجودة بالفعل في قاعدة البيانات",
+                                       parent=self.parent)
+            elif any(str(product[0]) == self.selected_product for product in self.data):
                 data = {
-                    "name": self.product_name_e.get(),
-                    "category": self.product_category_e.get(),
-                    "price": float(self.product_price_e.get()),
-                    "vat_tax": float(self.product_tva_e.get()),
-                    "stamp_tax": self.product_stamp_e.get(),
-                    "available_quantity": float(self.product_quantity_e.get()),
-                    "unit": self.product_unit_e.get(),
-                    "id": self.selected_product
+                    "name": self.product_name_e.get().strip(),
+                    "category": self.product_category_e.get().strip(),
+                    "price": float(self.product_price_e.get().strip()),
+                    "vat_tax": float(self.product_tva_e.get().strip()),
+                    "stamp_tax": self.product_stamp_e.get().strip(),
+                    "available_quantity": float(self.product_quantity_e.get().strip()),
+                    "unit": self.product_unit_e.get().strip(),
+                    "id": self.selected_product.strip()
                 }
                 msg = db.update_product(data)
                 if msg.startswith("تم"):
@@ -469,6 +475,9 @@ class Customers:
         tree_frame = ttk.Frame(self.frame)
         tree_frame.pack(fill=tk.X, expand=True, padx=20, pady=5)
 
+        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_customers_list).pack(
+            pady=5, padx=20, anchor="nw")
+
         self.my_tree = ttk.Treeview(tree_frame, selectmode="extended", height=5)
         self.my_tree.pack(side=tk.RIGHT, fill=tk.X, expand=True)
 
@@ -502,10 +511,9 @@ class Customers:
         self.my_tree.heading("phone", anchor=tk.CENTER, text="رقم الهاتف")
         self.my_tree.heading("address", anchor=tk.CENTER, text="العنوان")
         self.my_tree.heading("commercial_register_number", anchor=tk.CENTER, text="رقم السجل التجاري")
-        self.my_tree.bind('<ButtonRelease-1>',
+        self.my_tree.bind('<Double-1>',
                           lambda event: self.select_customer()
                           if self.my_tree.identify_region(event.x, event.y) != "heading" else None)
-        # self.my_tree.bind('<Motion>', 'break')
 
         for record in self.data:
             self.my_tree.insert(parent='', index='end', text='',
@@ -575,20 +583,20 @@ class Customers:
 
     def validation(self):
         errors = []
-        if not help.is_arabic(self.customer_name_e.get()):
+        if not help.is_arabic(self.customer_name_e.get().strip()):
             errors.append("اسم الزبون يجب أن يكون باللغة العربية")
-        if not help.is_arabic(self.customer_lastname_e.get()):
+        if not help.is_arabic(self.customer_lastname_e.get().strip()):
             errors.append("لقب الزبون يجب أن يكون باللغة العربية")
-        if not help.is_phone_number(self.customer_phone_e.get()):
+        if not help.is_phone_number(self.customer_phone_e.get().strip()):
             errors.append("تأكد من أن رقم الهاتف صحيح")
-        if not help.is_reg_id(self.customer_reg_id_e.get()):
+        if not help.is_reg_id(self.customer_reg_id_e.get().strip()):
             errors.append("تأكد من طريقة كتابتك لرقم السجل")
-        if not help.is_number(self.customer_tax_num_e.get()):
+        if not help.is_number(self.customer_tax_num_e.get().strip()):
             errors.append("الرقم الجبائي يجب أن يتكون من أرقام فقط")
-        if not help.is_number(self.customer_tax_item_e.get()):
+        if not help.is_number(self.customer_tax_item_e.get().strip()):
             errors.append("رقم مادة الضرائب يجب أن يتكون من أرقام فقط")
-        if not help.is_number(self.customer_statistical_id_e.get()):
-            errors.append("رقم التعريف الاحصائي يجب أن يتكون من أرقام فقط")
+        if not help.is_number(self.customer_statistical_id_e.get().strip()):
+            errors.append("رقم التعريف الاحصائي يجب أن يتكون من أرقام فقط".strip())
         return errors
 
     def clear_entries(self):
@@ -620,71 +628,66 @@ class Customers:
         if errors:
             messagebox.showerror("خطأ", "\n".join(errors), parent=self.parent)
         else:
-            if any(customer[5] == self.customer_reg_id_e.get() for customer in self.data):
-                messagebox.showwarning("تحذير", "تأكد من رقم السجل لأنه موجود في قاعدة البيانات", parent=self.parent)
+            if any(customer[5] == self.customer_reg_id_e.get().strip() for customer in self.data):
+                messagebox.showwarning("تحذير", "تأكد من رقم السجل لأنه موجود مسبقا في قاعدة البيانات",
+                                       parent=self.parent)
             else:
                 data = {
-                    "name": self.customer_name_e.get(),
-                    "last_name": self.customer_lastname_e.get(),
-                    "phone": self.customer_phone_e.get(),
-                    "address": self.customer_address_e.get(),
-                    "commercial_register_number": self.customer_reg_id_e.get(),
-                    "tax_number": self.customer_tax_num_e.get(),
-                    "tax_item_number": self.customer_tax_item_e.get(),
-                    "statistical_id": self.customer_statistical_id_e.get()
+                    "name": self.customer_name_e.get().strip(),
+                    "last_name": self.customer_lastname_e.get().strip(),
+                    "phone": self.customer_phone_e.get().strip(),
+                    "address": self.customer_address_e.get().strip(),
+                    "commercial_register_number": self.customer_reg_id_e.get().strip(),
+                    "tax_number": self.customer_tax_num_e.get().strip(),
+                    "tax_item_number": self.customer_tax_item_e.get().strip(),
+                    "statistical_id": self.customer_statistical_id_e.get().strip()
                 }
                 msg = db.add_customer(data)
                 if msg.startswith("تم"):
-                    self.my_tree.delete(*self.my_tree.get_children())
-                    self.data = db.get_customers()
-                    self.o_frame.update_customers(self.data)
-
-                    # Insert the updated data into the Treeview
-                    for customer in self.data:
-                        self.my_tree.insert(parent='', index='end', text='',
-                                            values=(customer[8], customer[7], customer[6], customer[5], customer[4],
-                                                    customer[3] if customer[3] != '' else "غير متوفر", customer[2],
-                                                    customer[1], customer[0]))
-
-                    self.clear_entries()
+                    self.update_customers_list()
 
                     messagebox.showinfo("", msg)
                 else:
                     messagebox.showerror("", msg)
+
+    def update_customers_list(self):
+        self.my_tree.delete(*self.my_tree.get_children())
+        self.data = db.get_customers()
+        self.o_frame.update_customers(self.data)
+
+        # Insert the updated data into the Treeview
+        for customer in self.data:
+            self.my_tree.insert(parent='', index='end', text='',
+                                values=(customer[8], customer[7], customer[6], customer[5], customer[4],
+                                        customer[3] if customer[3] != '' else "غير متوفر", customer[2],
+                                        customer[1], customer[0]))
+
+        self.clear_entries()
 
     def update_customer(self):
         errors = self.validation()
         if errors:
             messagebox.showerror("خطأ", "\n".join(errors), parent=self.parent)
         else:
-            if any(str(customer[0]) == self.selected_customer for customer in self.data):
+            if any(customer[5] == self.customer_reg_id_e.get().strip()
+                   and str(customer[0]) != self.selected_customer for customer in self.data):
+                messagebox.showwarning("تحذير", "تأكد من رقم السجل لأنه موجود مسبقا في قاعدة البيانات",
+                                       parent=self.parent)
+            elif any(str(customer[0]) == self.selected_customer for customer in self.data):
                 data = {
-                    "name": self.customer_name_e.get(),
-                    "last_name": self.customer_lastname_e.get(),
-                    "phone": self.customer_phone_e.get(),
-                    "address": self.customer_address_e.get(),
-                    "commercial_register_number": self.customer_reg_id_e.get(),
-                    "tax_number": self.customer_tax_num_e.get(),
-                    "tax_item_number": self.customer_tax_item_e.get(),
-                    "statistical_id": self.customer_statistical_id_e.get(),
-                    "id": self.selected_customer
+                    "name": self.customer_name_e.get().strip(),
+                    "last_name": self.customer_lastname_e.get().strip(),
+                    "phone": self.customer_phone_e.get().strip(),
+                    "address": self.customer_address_e.get().strip(),
+                    "commercial_register_number": self.customer_reg_id_e.get().strip(),
+                    "tax_number": self.customer_tax_num_e.get().strip(),
+                    "tax_item_number": self.customer_tax_item_e.get().strip(),
+                    "statistical_id": self.customer_statistical_id_e.get().strip(),
+                    "id": self.selected_customer.strip()
                 }
-                print(data)
                 msg = db.update_customer(data)
                 if msg.startswith("تم"):
-                    self.my_tree.delete(*self.my_tree.get_children())
-                    self.data = db.get_customers()
-                    self.o_frame.update_customers(self.data)
-
-                    # Insert the updated data into the Treeview
-                    for customer in self.data:
-                        self.my_tree.insert(parent='', index='end', text='',
-                                            values=(customer[8], customer[7], customer[6], customer[5], customer[4],
-                                                    customer[3] if customer[3] != '' else "غير متوفر", customer[2],
-                                                    customer[1], customer[0]))
-
-                    self.clear_entries()
-
+                    self.update_customers_list()
                     messagebox.showinfo("", msg)
                 else:
                     messagebox.showerror("", msg)
@@ -694,6 +697,7 @@ class Customers:
 
 class Bills:
     def __init__(self, parent, data):
+        self.orders_ids = {}
         self.checkbox = tk.IntVar()
         self.data = data
         self.my_tree = None
@@ -708,6 +712,10 @@ class Bills:
         checkbox = ttk.Checkbutton(tree_frame, text="إظهار الفواتير التي لم يتم دفعها فقط", command=self.filter_results,
                                    variable=self.checkbox)
         checkbox.pack(padx=20, pady=10)
+
+        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_bills).pack(pady=5,
+                                                                                                           padx=20,
+                                                                                                           anchor="nw")
 
         self.my_tree = ttk.Treeview(tree_frame, selectmode="extended")
         self.my_tree.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
@@ -737,18 +745,71 @@ class Bills:
         self.my_tree.heading("date", anchor=tk.CENTER, text="التاريخ")
         self.my_tree.heading("price", anchor=tk.CENTER, text="السعر الاجمالي")
         self.my_tree.heading("state", anchor=tk.CENTER, text="الحالة")
-        # self.my_tree.bind('<ButtonRelease-1>',
-        #                   lambda event: self.select_customer()
-        #                   if self.my_tree.identify_region(event.x, event.y) != "heading" else None)
-        # self.my_tree.bind('<Motion>', 'break')
+        self.my_tree.bind('<Double-1>',
+                          lambda event: self.on_double_click()
+                          if self.my_tree.identify_region(event.x, event.y) != "heading" else None)
 
-        for record in self.data:
-            self.my_tree.insert(parent='', index='end', text='',
-                                values=(record[8], record[7], record[6], record[5], record[4],
-                                        record[3] if record[3] != '' else "غير متوفر", record[2], record[1], record[0]))
+        self.update_bills()
 
     def filter_results(self):
-        print(self.checkbox.get())
+        self.my_tree.delete(*self.my_tree.get_children())
+        if self.checkbox.get():
+            for o_id, record in self.data.items():
+                if record["order_status"].startswith("لم"):
+                    price = 0.0
+                    for p in record["products"]:
+                        price += ((float(p["price_at_order_time"]) * float(p["quantity"])) + float(
+                            p["vat_tax_at_order_time"])
+                                  + float(p["stamp_tax_at_order_time"]))
+                    self.my_tree.insert(parent='', index='end', text='',
+                                        values=(record["order_status"], price, record["order_date"],
+                                                f"{record['customer_info']['name']} {record['customer_info']['last_name']}",
+                                                self.orders_ids[o_id], o_id))
+        else:
+            for o_id, record in self.data.items():
+                price = 0.0
+                for p in record["products"]:
+                    price += ((float(p["price_at_order_time"]) * float(p["quantity"])) + float(
+                        p["vat_tax_at_order_time"])
+                              + float(p["stamp_tax_at_order_time"]))
+                self.my_tree.insert(parent='', index='end', text='',
+                                    values=(record["order_status"], price, record["order_date"],
+                                            f"{record['customer_info']['name']} {record['customer_info']['last_name']}",
+                                            self.orders_ids[o_id], o_id))
+
+    def on_double_click(self):
+        item = self.my_tree.selection()[0]
+        item_values = self.my_tree.item(item, "values")
+        x, y, _, _ = self.my_tree.bbox(item)
+        x += self.my_tree.winfo_rootx() + 50
+        y += self.my_tree.winfo_rooty() + 20
+
+        # Create a menu
+        menu = tk.Menu(self.my_tree, tearoff=0, font=label_text, bg="maroon", fg="white", activebackground="#DD5746")
+
+        menu.add_command(label="تحميل الفاتورة", )
+        msg = "تم الدفع" if item_values[0].startswith("لم") else "لم يتم الدفع"
+        menu.add_command(label=msg, command=lambda: (db.update_order_status(item_values[-1]), self.update_bills()))
+        # Display the menu at the location of the double click event
+        menu.post(x, y)
+
+    def update_bills(self):
+        self.data = db.get_orders()
+        orders_ids_data = [(order_id, order_info["order_date"]) for order_id, order_info in self.data.items()]
+        self.orders_ids = help.get_orders_ids(orders_ids_data)
+
+        self.checkbox.set(0)
+
+        self.my_tree.delete(*self.my_tree.get_children())
+        for o_id, record in self.data.items():
+            price = 0.0
+            for p in record["products"]:
+                price += ((float(p["price_at_order_time"]) * float(p["quantity"])) + float(p["vat_tax_at_order_time"])
+                          + float(p["stamp_tax_at_order_time"]))
+            self.my_tree.insert(parent='', index='end', text='',
+                                values=(record["order_status"], f"{price}", record["order_date"],
+                                        f"{record['customer_info']['name']} {record['customer_info']['last_name']}",
+                                        self.orders_ids[o_id], o_id))
 
 
 if __name__ == "__main__":
@@ -769,6 +830,8 @@ if __name__ == "__main__":
     customers = db.get_customers()
     bills = db.get_orders()
 
+    print(bills)
+
     root = tk.Tk()
     root.geometry("1280x800")
     root.minsize(1200, 800)
@@ -788,17 +851,17 @@ if __name__ == "__main__":
     style.configure('TCheckbutton', font=label_text)
     style.configure('TNotebook', tabposition='ne')
     style.configure('TNotebook.Tab', font=heading, padding=[10, 10])
-    style.configure('danger.TButton', font=bold_text, foreground="#b53737")
-    style.configure('success.TButton', font=bold_text, foreground="#008080")
-    style.configure('warning.TButton', font=bold_text, foreground="#ca562c")
+    style.configure('danger.TButton', font=bold_text, foreground="darkred")
+    style.configure('success.TButton', font=bold_text, foreground="#135D66")
+    style.configure('warning.TButton', font=bold_text, foreground="maroon")
 
     notebook = ttk.Notebook(root)
     notebook.pack(fill=tk.BOTH, expand=tk.TRUE)
 
-    orders_frame = Orders(notebook, products, customers)
+    bills_frame = Bills(notebook, bills)
+    orders_frame = Orders(notebook, products, customers, bills_frame)
     products_frame = Products(notebook, products, orders_frame)
     customers_frame = Customers(notebook, customers, orders_frame)
-    bills_frame = Bills(notebook, bills)
 
     # Add the instance of ProductManagementApp frame to the Notebook
     notebook.add(bills_frame.frame, text="الفواتير")

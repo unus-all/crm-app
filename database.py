@@ -32,7 +32,7 @@ class Database:
         # Order table
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_id INTEGER, order_date TEXT, order_status INTEGER, updated_at TEXT,
+        customer_id INTEGER, order_date TEXT, order_status INTEGER, created_at TEXT, updated_at TEXT,
         FOREIGN KEY (customer_id) REFERENCES customers(id)
         )""")
         self.connection.commit()
@@ -80,8 +80,8 @@ class Database:
         cursor = self.connection.cursor()
         try:
             cursor.execute("""
-                        INSERT INTO orders (customer_id, order_date, order_status, updated_at) 
-                        VALUES (?, ?, ?, datetime('now'))
+                        INSERT INTO orders (customer_id, order_date, order_status, created_at, updated_at) 
+                        VALUES (?, ?, ?, datetime('now'), datetime('now'))
                     """, (data["customer_id"], data["order_date"], data["order_status"]))
 
             current_id = cursor.lastrowid
@@ -114,7 +114,69 @@ class Database:
         return cursor.fetchall()
 
     def get_orders(self):
-        return []
+        cursor = self.connection.cursor()
+        try:
+            # Execute the SQL query to retrieve orders, customer information, and products
+            cursor.execute("""
+                SELECT o.id AS order_id, o.order_date, o.order_status, o.created_at,
+                       c.name, c.last_name, c.phone, c.address, c.commercial_register_number, c.tax_number,
+                       c.tax_item_number, c.statistical_id,
+                       oi.product_name, oi.product_category, oi.quantity,
+                       oi.price_at_order_time, oi.vat_tax_at_order_time, oi.stamp_tax_at_order_time
+                FROM orders o
+                LEFT JOIN customers c ON o.customer_id = c.id
+                LEFT JOIN order_items oi ON o.id = oi.order_id
+                ORDER BY o.order_date DESC, o.created_at ASC
+            """)
+
+            # Fetch all rows
+            rows = cursor.fetchall()
+
+            orders_dict = {}
+
+            # Iterate through the rows and organize the data into a dictionary of orders
+            for row in rows:
+                order_id = row[0]
+                order_info = {
+                    "id": row[0],
+                    "order_date": row[1],
+                    "order_status": row[2],
+                    "created_at": row[3],
+                    "customer_info": {
+                        "name": row[4],
+                        "last_name": row[5],
+                        "phone": row[6],
+                        "address": row[7],
+                        "commercial_register_number": row[8],
+                        "tax_number": row[9],
+                        "tax_item_number": row[10],
+                        "statistical_id": row[11]
+                    },
+                    "products": []
+                }
+
+                product_info = {
+                    "product_name": row[12],
+                    "product_category": row[13],
+                    "quantity": row[14],
+                    "price_at_order_time": row[15],
+                    "vat_tax_at_order_time": row[16],
+                    "stamp_tax_at_order_time": row[17]
+                }
+
+                # Append product information to the list of products for the current order
+                order_info["products"].append(product_info)
+
+                # Add the order information to the orders dictionary
+                if order_id not in orders_dict:
+                    orders_dict[order_id] = order_info
+                else:
+                    orders_dict[order_id]["products"].append(product_info)
+
+            return orders_dict
+        except Exception as e:
+            print(f"Error fetching orders: {e}")
+            return {}
 
     def update_customer(self, data):
         cursor = self.connection.cursor()
@@ -152,7 +214,18 @@ class Database:
             return "حدث خطأ أثناء تحديث السلعة"
 
     def update_order_status(self, order_id):
-        pass
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("SELECT order_status FROM orders WHERE id = ?", (order_id, ))
+            current_status = cursor.fetchone()[0]
+            new_status = "لم يتم دفع الفاتورة" if current_status == "تم دفع الفاتورة" else "تم دفع الفاتورة"
+            cursor.execute("""UPDATE orders SET order_status = ?, updated_at = datetime('now') 
+                                            WHERE id = ?""", (new_status, order_id))
+            self.connection.commit()
+            print("order status updated successfully")
+
+        except Exception as e:
+            print(f"Error updating the order status: {e}")
 
     def update_product_quantity(self, cart):
         cursor = self.connection.cursor()
