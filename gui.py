@@ -10,6 +10,11 @@ import help
 from tkcalendar import DateEntry
 import locale
 from datetime import datetime
+from tkinter import filedialog
+from openpyxl import load_workbook
+from openpyxl.styles.borders import Border, Side
+from openpyxl.styles import Alignment, Font
+import os
 
 
 class Orders:
@@ -787,7 +792,7 @@ class Bills:
         # Create a menu
         menu = tk.Menu(self.my_tree, tearoff=0, font=label_text, bg="maroon", fg="white", activebackground="#DD5746")
 
-        menu.add_command(label="تحميل الفاتورة", )
+        menu.add_command(label="تحميل الفاتورة", command=lambda: self.download_bill(item_values[-1]))
         msg = "تم الدفع" if item_values[0].startswith("لم") else "لم يتم الدفع"
         menu.add_command(label=msg, command=lambda: (db.update_order_status(item_values[-1]), self.update_bills()))
         # Display the menu at the location of the double click event
@@ -810,6 +815,145 @@ class Bills:
                                 values=(record["order_status"], f"{price}", record["order_date"],
                                         f"{record['customer_info']['name']} {record['customer_info']['last_name']}",
                                         self.orders_ids[o_id], o_id))
+
+    def download_bill(self, bill_id):
+        # get info
+        data = self.data[int(bill_id)]
+
+        # Create a new workbook
+        wb = load_workbook("template.xlsx")
+        ws = wb.active
+
+        # Define default font style
+        default_font = Font(name='Arial', size=12)  # Set the desired font name and size
+        label_font = Font(name='Arial', size=14, bold=True)
+        title_font = Font(name='Arial', size=16, bold=True)
+        # Apply default font style to all cells in the worksheet
+        for row in ws.iter_rows():
+            for cell in row:
+                cell.font = default_font
+                cell.alignment = Alignment(wrap_text=True)
+
+        # date
+        ws.merge_cells(f'A1:B1')
+        order_date = datetime.strptime(data["order_date"], "%Y-%m-%d")
+        ws['A1'] = f"عين التراب في : {order_date.strftime("%Y/%m/%d")}"
+
+        # Supplier info
+        ws['C2'] = "Jane Doe"
+        ws['C3'] = "تجارة بالجملة"
+        ws['C4'] = "........"
+        ws['C5'] = "00/00 - 0000000 A 00"
+        ws['C6'] = "0000000000"
+        ws['C7'] = "0000000000"
+        ws['C8'] = "0000000000"
+
+        # customer info
+        ws['A9'] = data["customer_info"]["name"] + " " + data["customer_info"]["last_name"]
+        ws['A10'] = data["customer_info"]["address"]
+        ws['A11'] = data["customer_info"]["commercial_register_number"]
+        ws['A12'] = data["customer_info"]["tax_number"]
+        ws['A13'] = data["customer_info"]["tax_item_number"]
+        ws['A14'] = data["customer_info"]["statistical_id"]
+
+        # bill number
+        ws['A16'] = f"فاتورة رقم : {self.orders_ids[int(bill_id)]}"
+        ws['A16'].font = title_font
+        ws['A16'].alignment = Alignment(horizontal='center', vertical='center')
+
+        # aligning
+        cells = ["C2", "C4", "C5", "C6", "C7", "C8", "A9", "A10", "A11", "A12", "A13", "A14"]
+        for cell in cells:
+            ws[cell].alignment = Alignment(horizontal='right', vertical='center')
+
+        cells = ["A18", "B18", "C18", "D18", "E18", "F18"]
+        for cell in cells:
+            ws[cell].alignment = Alignment(horizontal='center', vertical='center')
+            ws[cell].font = label_font
+
+        i = 0
+        tva_sum = 0
+        stamp_price = 0
+        price = 0
+        while i < len(data["products"]):
+            tva_sum += float(data["products"][i]["vat_tax_at_order_time"])
+            stamp_price += float(data["products"][i]["stamp_tax_at_order_time"])
+            price += float(data["products"][i]["quantity"]) * float(data["products"][i]["price_at_order_time"])
+
+            # print to cells
+            ws[f'F{19+i}'] = i + 1
+            ws[f'E{19 + i}'] = data["products"][i]["product_name"]
+            ws[f'D{19 + i}'] = data["products"][i]["product_category"]
+            ws[f'C{19 + i}'] = data["products"][i]["quantity"]
+            ws[f'B{19 + i}'] = '{:.2f}'.format(data["products"][i]["price_at_order_time"])
+            ws[f'A{19 + i}'] = '{:.2f}'.format(
+                float(data["products"][i]["quantity"]) * float(data["products"][i]["price_at_order_time"]))
+
+            for cell in ['A', 'B', 'C', 'D', 'E']:
+                ws[f'{cell}{19 + i}'].border = Border(left=Side(style="thin"))
+                ws[f'{cell}{19 + i}'].alignment = Alignment(horizontal='center', vertical='center')
+            ws[f'F{19 + i}'].border = Border(right=Side(style="thin"), left=Side(style="thin"))
+            ws[f'F{19 + i}'].alignment = Alignment(horizontal='center', vertical='center')
+            i += 1
+
+        for cell in ['A', 'B', 'C', 'D', 'E', 'F']:
+            ws[f'{cell}{19 + i}'].border = Border(top=Side(style="thin"))
+
+        ws[f'A{19+i}'] = '{:.2f}'.format(price)
+        ws[f'A{19+i+1}'] = '{:.2f}'.format(tva_sum)
+        ws[f'A{19+i+2}'] = '{:.2f}'.format(stamp_price)
+        ws[f'A{19+i+3}'] = '{:.2f}'.format(price+tva_sum+stamp_price)
+
+        ws[f'A{19 + i}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'A{19 + i + 1}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'A{19 + i + 2}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'A{19 + i + 3}'].alignment = Alignment(horizontal='center', vertical='center')
+
+        ws.merge_cells(f'B{19 + i}:C{19 + i}')
+        ws.merge_cells(f'B{19 + i + 1}:C{19 + i + 1}')
+        ws.merge_cells(f'B{19 + i + 2}:C{19 + i + 2}')
+        ws.merge_cells(f'B{19 + i + 3}:C{19 + i + 3}')
+
+        ws[f'B{19+i}'] = "المبلغ دون الرسم"
+        ws[f'B{19+i+1}'] = "مبلغ الرسم على القيمة المضافة"
+        ws[f'B{19+i+2}'] = "ضريبة الطابع"
+        ws[f'B{19+i+3}'] = "المبلغ باحتساب كل الرسوم"
+
+        for cell in ['A', 'B']:
+            for j in range(4):
+                ws[f'{cell}{19 + i + j}'].border = Border(top=Side(style="thin"),
+                                                              left=Side(style="thin"),
+                                                              right=Side(style="thin"),
+                                                              bottom=Side(style="thin"))
+        for j in range(4):
+            ws[f'C{19 + i + j}'].border = Border(right=Side(style="thin"))
+
+        ws.merge_cells(f'D{19 + i + 5}:F{19 + i + 5}')
+        ws.merge_cells(f'D{19 + i + 6}:F{19 + i + 6}')
+
+        ws[f'D{19 + i + 5}'] = "يوقف سند هذه الفاتورة على المبلغ الإجمالي"
+        ws[f'D{19 + i + 6}'] = "كيفية الدفع"
+        ws[f'D{19 + i + 5}'].alignment = Alignment(horizontal='right', vertical='center')
+        ws[f'D{19 + i + 6}'].alignment = Alignment(horizontal='right', vertical='center')
+
+        ws[f'B{19 + i + 7}'] = "إمضاء و ختم"
+        ws[f'B{19 + i + 7}'].font = Font(bold=True, underline='single')
+        ws[f'B{19 + i + 7}'].alignment = Alignment(horizontal='center', vertical='center')
+
+        desktop_dir = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+
+        # Ask the user for the file path
+        file_name = f"Facture N {self.orders_ids[int(bill_id)].replace('/', '-')}"
+        file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")],
+                                                 initialdir=desktop_dir, initialfile=file_name)
+
+        # If the user cancels, return without saving
+        if not file_path:
+            return
+
+        # Save the workbook to the chosen file path
+        wb.save(file_path)
+        messagebox.showinfo("حفظ الفاتورة", f"تم حفظ الفاتورة بنجاح في\n{file_path}")
 
 
 if __name__ == "__main__":
