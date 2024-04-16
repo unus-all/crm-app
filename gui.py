@@ -703,6 +703,7 @@ class Customers:
 class Bills:
     def __init__(self, parent, data):
         self.orders_ids = {}
+        self.search = None
         self.checkbox = tk.IntVar()
         self.data = data
         self.my_tree = None
@@ -718,9 +719,12 @@ class Bills:
                                    variable=self.checkbox)
         checkbox.pack(padx=20, pady=10)
 
-        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_bills).pack(pady=5,
-                                                                                                           padx=20,
-                                                                                                           anchor="nw")
+        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_bills).pack(
+            pady=5, padx=20, anchor="ne")
+
+        self.search = ttk.Entry(tree_frame, justify="right", font=normal_text)
+        self.search.pack(padx=20, pady=10, fill=tk.X)
+        self.search.bind("<Return>", lambda event: self.update_search())
 
         self.my_tree = ttk.Treeview(tree_frame, selectmode="extended")
         self.my_tree.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
@@ -955,6 +959,32 @@ class Bills:
         wb.save(file_path)
         messagebox.showinfo("حفظ الفاتورة", f"تم حفظ الفاتورة بنجاح في\n{file_path}")
 
+    def update_search(self):
+        search_term = self.search.get().strip()
+        if len(search_term):
+            filtered_results = {}
+            for order_id, order_data in self.data.items():
+                customer_name = order_data["customer_info"]["name"].lower()
+                customer_last_name = order_data["customer_info"]["last_name"].lower()
+                if search_term in customer_name or search_term in customer_last_name:
+                    filtered_results[order_id] = order_data
+            data = filtered_results
+
+            self.checkbox.set(0)
+
+            self.my_tree.delete(*self.my_tree.get_children())
+            for o_id, record in data.items():
+                price = 0.0
+                for p in record["products"]:
+                    price += ((float(p["price_at_order_time"]) * float(p["quantity"])) + float(
+                        p["vat_tax_at_order_time"])
+                              + float(p["stamp_tax_at_order_time"]))
+                self.my_tree.insert(parent='', index='end', text='',
+                                    values=(record["order_status"], f"{price}", record["order_date"],
+                                            f"{record['customer_info']['name']} {record['customer_info']['last_name']}",
+                                            self.orders_ids[o_id], o_id))
+        else:
+            self.update_bills()
 
 if __name__ == "__main__":
     windll.shcore.SetProcessDpiAwareness(1)
