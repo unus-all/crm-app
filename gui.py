@@ -228,7 +228,6 @@ class Orders:
                 self.update_products(db.get_products())
                 # Display success message and clean the data
                 self.clean_data()
-                self.b_frame.update_bills()
 
 
 class Products:
@@ -251,9 +250,6 @@ class Products:
     def setup_ui(self):
         tree_frame = ttk.Frame(self.frame)
         tree_frame.pack(fill=tk.X, expand=True, padx=20, pady=5)
-
-        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_products_list).pack(
-            pady=5, padx=20, anchor="nw")
 
         self.my_tree = ttk.Treeview(tree_frame, selectmode="extended", height=5)
         self.my_tree.pack(side=tk.RIGHT, fill=tk.X, expand=True)
@@ -356,7 +352,6 @@ class Products:
     def update_products_list(self):
         self.my_tree.delete(*self.my_tree.get_children())
         self.data = db.get_products()
-        self.o_frame.update_products(self.data)
 
         # Insert the updated data into the Treeview
         for product in self.data:
@@ -479,9 +474,6 @@ class Customers:
     def setup_ui(self):
         tree_frame = ttk.Frame(self.frame)
         tree_frame.pack(fill=tk.X, expand=True, padx=20, pady=5)
-
-        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_customers_list).pack(
-            pady=5, padx=20, anchor="nw")
 
         self.my_tree = ttk.Treeview(tree_frame, selectmode="extended", height=5)
         self.my_tree.pack(side=tk.RIGHT, fill=tk.X, expand=True)
@@ -658,7 +650,6 @@ class Customers:
     def update_customers_list(self):
         self.my_tree.delete(*self.my_tree.get_children())
         self.data = db.get_customers()
-        self.o_frame.update_customers(self.data)
 
         # Insert the updated data into the Treeview
         for customer in self.data:
@@ -719,9 +710,6 @@ class Bills:
                                    variable=self.checkbox)
         checkbox.pack(padx=20, pady=10)
 
-        ttk.Button(tree_frame, text="تحديث القائمة", style="warning.TButton", command=self.update_bills).pack(
-            pady=5, padx=20, anchor="ne")
-
         self.search = ttk.Entry(tree_frame, justify="right", font=normal_text)
         self.search.pack(padx=20, pady=10, fill=tk.X)
         self.search.bind("<Return>", lambda event: self.update_search())
@@ -762,6 +750,7 @@ class Bills:
 
     def filter_results(self):
         self.my_tree.delete(*self.my_tree.get_children())
+        self.search.delete(0, tk.END)
         if self.checkbox.get():
             for o_id, record in self.data.items():
                 if record["order_status"].startswith("لم"):
@@ -807,18 +796,20 @@ class Bills:
         orders_ids_data = [(order_id, order_info["order_date"]) for order_id, order_info in self.data.items()]
         self.orders_ids = help.get_orders_ids(orders_ids_data)
 
-        self.checkbox.set(0)
+        self.filter_results()
 
-        self.my_tree.delete(*self.my_tree.get_children())
-        for o_id, record in self.data.items():
-            price = 0.0
-            for p in record["products"]:
-                price += ((float(p["price_at_order_time"]) * float(p["quantity"])) + float(p["vat_tax_at_order_time"])
-                          + float(p["stamp_tax_at_order_time"]))
-            self.my_tree.insert(parent='', index='end', text='',
-                                values=(record["order_status"], f"{price}", record["order_date"],
-                                        f"{record['customer_info']['name']} {record['customer_info']['last_name']}",
-                                        self.orders_ids[o_id], o_id))
+        # self.checkbox.set(0)
+        #
+        # self.my_tree.delete(*self.my_tree.get_children())
+        # for o_id, record in self.data.items():
+        #     price = 0.0
+        #     for p in record["products"]:
+        #         price += ((float(p["price_at_order_time"]) * float(p["quantity"])) + float(p["vat_tax_at_order_time"])
+        #                   + float(p["stamp_tax_at_order_time"]))
+        #     self.my_tree.insert(parent='', index='end', text='',
+        #                         values=(record["order_status"], f"{price}", record["order_date"],
+        #                                 f"{record['customer_info']['name']} {record['customer_info']['last_name']}",
+        #                                 self.orders_ids[o_id], o_id))
 
     def download_bill(self, bill_id):
         # get info
@@ -986,6 +977,7 @@ class Bills:
         else:
             self.update_bills()
 
+
 if __name__ == "__main__":
     windll.shcore.SetProcessDpiAwareness(1)
     # Set locale to Arabic (Algerian)
@@ -1003,8 +995,6 @@ if __name__ == "__main__":
     products = db.get_products()
     customers = db.get_customers()
     bills = db.get_orders()
-
-    print(bills)
 
     root = tk.Tk()
     root.geometry("1280x800")
@@ -1044,5 +1034,23 @@ if __name__ == "__main__":
     notebook.add(orders_frame.frame, text="طلب جديد")
 
     notebook.select(3)
+
+
+    def refresh(event):
+        global notebook, bills_frame, orders_frame, products_frame, customers_frame
+        if notebook.index("current") == 0:
+            bills_frame.update_bills()
+        elif notebook.index("current") == 1:
+            products_frame.update_products_list()
+        elif notebook.index("current") == 2:
+            customers_frame.update_customers_list()
+        else:
+            orders_frame.update_products(db.get_products())
+            orders_frame.update_customers(db.get_customers())
+
+
+
+
+    notebook.bind("<<NotebookTabChanged>>", refresh)
 
     root.mainloop()
