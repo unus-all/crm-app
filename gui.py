@@ -14,6 +14,7 @@ from tkinter import filedialog
 from openpyxl import load_workbook
 from openpyxl.styles.borders import Border, Side
 from openpyxl.styles import Alignment, Font
+import shutil
 import os
 
 
@@ -52,7 +53,8 @@ class Orders:
         self.customer_name_e.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
 
         date_l = ttk.Label(data_frame, text="تاريخ الطلب")
-        self.date_e = DateEntry(data_frame, justify="center", state="readonly", background='black', foreground='white', borderwidth=1,
+        self.date_e = DateEntry(data_frame, justify="center", state="readonly", background='black', foreground='white',
+                                borderwidth=1,
                                 font=normal_text, showweeknumbers=False, showothermonthdays=False,
                                 selectbackground='red',
                                 date_pattern="YYYY-mm-dd", firstweekday="sunday", locale="ar_DZ", weekenddays=[6, 7],
@@ -146,7 +148,7 @@ class Orders:
             selected_product = [p for p in self.products_tmp if p[0] == product_id][0]
             if selected_product[6] < float(self.product_qtt_e.get()):
                 messagebox.showwarning("الكمية كبيرة",
-                   "الكمية التي أدخلتها غير متوفرة .. يرجى تحديث الكمية المتوفرة الخاصة بالسلعة قبل القيام بأي عملية")
+                "الكمية التي أدخلتها غير متوفرة .. يرجى تحديث الكمية المتوفرة الخاصة بالسلعة قبل القيام بأي عملية")
             else:
                 for item in self.products_tmp:
                     if item[0] == product_id:
@@ -876,7 +878,7 @@ class Bills:
             price += float(data["products"][i]["quantity"]) * float(data["products"][i]["price_at_order_time"])
 
             # print to cells
-            ws[f'F{19+i}'] = i + 1
+            ws[f'F{19 + i}'] = i + 1
             ws[f'E{19 + i}'] = data["products"][i]["product_name"]
             ws[f'D{19 + i}'] = data["products"][i]["product_category"]
             ws[f'C{19 + i}'] = data["products"][i]["quantity"]
@@ -894,10 +896,10 @@ class Bills:
         for cell in ['A', 'B', 'C', 'D', 'E', 'F']:
             ws[f'{cell}{19 + i}'].border = Border(top=Side(style="thin"))
 
-        ws[f'A{19+i}'] = '{:.2f}'.format(price)
-        ws[f'A{19+i+1}'] = '{:.2f}'.format(tva_sum)
-        ws[f'A{19+i+2}'] = '{:.2f}'.format(stamp_price)
-        ws[f'A{19+i+3}'] = '{:.2f}'.format(price+tva_sum+stamp_price)
+        ws[f'A{19 + i}'] = '{:.2f}'.format(price)
+        ws[f'A{19 + i + 1}'] = '{:.2f}'.format(tva_sum)
+        ws[f'A{19 + i + 2}'] = '{:.2f}'.format(stamp_price)
+        ws[f'A{19 + i + 3}'] = '{:.2f}'.format(price + tva_sum + stamp_price)
 
         ws[f'A{19 + i}'].alignment = Alignment(horizontal='center', vertical='center')
         ws[f'A{19 + i + 1}'].alignment = Alignment(horizontal='center', vertical='center')
@@ -909,17 +911,17 @@ class Bills:
         ws.merge_cells(f'B{19 + i + 2}:C{19 + i + 2}')
         ws.merge_cells(f'B{19 + i + 3}:C{19 + i + 3}')
 
-        ws[f'B{19+i}'] = "المبلغ دون الرسم"
-        ws[f'B{19+i+1}'] = "مبلغ الرسم على القيمة المضافة"
-        ws[f'B{19+i+2}'] = "ضريبة الطابع"
-        ws[f'B{19+i+3}'] = "المبلغ باحتساب كل الرسوم"
+        ws[f'B{19 + i}'] = "المبلغ دون الرسم"
+        ws[f'B{19 + i + 1}'] = "مبلغ الرسم على القيمة المضافة"
+        ws[f'B{19 + i + 2}'] = "ضريبة الطابع"
+        ws[f'B{19 + i + 3}'] = "المبلغ باحتساب كل الرسوم"
 
         for cell in ['A', 'B']:
             for j in range(4):
                 ws[f'{cell}{19 + i + j}'].border = Border(top=Side(style="thin"),
-                                                              left=Side(style="thin"),
-                                                              right=Side(style="thin"),
-                                                              bottom=Side(style="thin"))
+                                                          left=Side(style="thin"),
+                                                          right=Side(style="thin"),
+                                                          bottom=Side(style="thin"))
         for j in range(4):
             ws[f'C{19 + i + j}'].border = Border(right=Side(style="thin"))
 
@@ -978,6 +980,61 @@ class Bills:
             self.update_bills()
 
 
+class UserInfo:
+    def __init__(self, parent, data):
+        self.data = data
+        self.parent = parent
+        self.frame = ttk.Frame(parent)
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.frame.columnconfigure(0, weight=1)
+        # Create labels to display user information
+        ttk.Label(self.frame, text="معلومات الحساب", font=heading, justify="right").grid(row=0, column=0, sticky="e",
+                                                                                         columnspan=2, pady=50, padx=30)
+
+        row = 1
+        for key, value in self.data.items():
+            ttk.Label(self.frame, text=key, font=label_text).grid(row=row, column=1, sticky='e', padx=30)
+            ttk.Label(self.frame, text=value, font=normal_text, anchor="e").grid(row=row, column=0, sticky='e', padx=30)
+            row += 1
+
+        ttk.Separator(self.frame, orient='horizontal').grid(row=row, column=0, sticky="ew", columnspan=2, pady=50,
+                                                            padx=30)
+
+        ttk.Label(self.frame, text="تحميل نسخة من البيانات", font=heading, justify="right").grid(row=row + 1, column=0,
+                                                                                                 sticky="e",
+                                                                                                 columnspan=2, padx=30,
+                                                                                                 pady=0)
+        msg = "يمكنك حفظ نسخة من قاعدة البيانات لاستعمالها في مكان آخر من هنا"
+        ttk.Label(self.frame, text=msg, font=label_text).grid(row=row + 2, column=1, sticky='e', padx=30, pady=0)
+        ttk.Button(self.frame, text="حفظ", style="danger.TButton", command=self.backup).grid(row=row + 2, column=0,
+                                                                                             sticky='e', padx=30,
+                                                                                             pady=0)
+
+    def backup(self):
+        try:
+            desktop_dir = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+
+            # Ask the user for the file path
+            file_path = filedialog.asksaveasfilename(defaultextension=".db", initialdir=desktop_dir,
+                                                     filetypes=[("SQLite Database files", "*.db")],
+                                                     initialfile="data")
+            # If the user cancels, return without exporting
+            if not file_path:
+                return
+
+            # Copy the database file to the specified location
+            shutil.copy('data.db', file_path)
+
+            # Show a success message
+            tk.messagebox.showinfo("اكتمل التحميل", f"تم حفظ بيانات بنجاح في \n {file_path}",
+                                   parent=self.parent)
+
+        except Exception as e:
+            tk.messagebox.showerror("خطأ", f"حدث خطأ أثناء عميلة حفظ البيانات", parent=self.parent)
+
+
 if __name__ == "__main__":
     windll.shcore.SetProcessDpiAwareness(1)
     # Set locale to Arabic (Algerian)
@@ -987,6 +1044,16 @@ if __name__ == "__main__":
     bold_text = ('Segoe UI', 12, 'bold')
     normal_text = ('Segoe UI', 12, 'normal')
     label_text = ('Segoe UI', 11, 'bold')
+
+    # user info
+    user_info = {
+        "الاسم و اللقب": "Jane Doe",
+        "العنوان": "Address",
+        "رقم السجل التجاري": "00/00 - 0000000 A 00",
+        "الرقم الجبائي": "00000000000",
+        "رقم مادة الضرائب": "00000000000",
+        "رقم التعريف الاحصائي": "00000000000"
+    }
 
     # Database
     db = database.Database()
@@ -1000,6 +1067,7 @@ if __name__ == "__main__":
     root.geometry("1280x800")
     root.minsize(1200, 800)
     root.title("نظام الفواتير")
+    root.iconbitmap("logo.ico")
 
     root.option_add('*Ttk*direction', 'rtl')  # تعيين الاتجاه لجميع عناصر ttk
 
@@ -1028,27 +1096,26 @@ if __name__ == "__main__":
     customers_frame = Customers(notebook, customers, orders_frame)
 
     # Add the instance of ProductManagementApp frame to the Notebook
+    notebook.add(UserInfo(notebook, user_info).frame, text="بياناتي")
     notebook.add(bills_frame.frame, text="الفواتير")
     notebook.add(products_frame.frame, text="السلع")
     notebook.add(customers_frame.frame, text="الزبائن")
     notebook.add(orders_frame.frame, text="طلب جديد")
 
-    notebook.select(3)
+    notebook.select(4)
 
 
     def refresh(event):
         global notebook, bills_frame, orders_frame, products_frame, customers_frame
-        if notebook.index("current") == 0:
+        if notebook.index("current") == 1:
             bills_frame.update_bills()
-        elif notebook.index("current") == 1:
-            products_frame.update_products_list()
         elif notebook.index("current") == 2:
+            products_frame.update_products_list()
+        elif notebook.index("current") == 3:
             customers_frame.update_customers_list()
-        else:
+        elif notebook.index("current") == 4:
             orders_frame.update_products(db.get_products())
             orders_frame.update_customers(db.get_customers())
-
-
 
 
     notebook.bind("<<NotebookTabChanged>>", refresh)
