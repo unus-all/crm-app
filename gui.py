@@ -747,8 +747,29 @@ class Bills:
         self.my_tree.bind('<Double-1>',
                           lambda event: self.on_double_click()
                           if self.my_tree.identify_region(event.x, event.y) != "heading" else None)
-
+        self.my_tree.bind('<Delete>',
+                          lambda event: self.delete_row()
+                          if self.my_tree.identify_region(event.x, event.y) != "heading" else None)
         self.update_bills()
+
+    def delete_row(self):
+        selected_items = self.my_tree.selection()
+        if len(selected_items) > 1:
+            messagebox.showerror("خطأ", "يمكنك حذف فاتورة واحدة فقط في كل مرة", parent=self.parent)
+        else:
+            msg = "هل أنت متأكد أنك تريد حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء."
+            if messagebox.askyesno("تأكيد", msg, parent=self.parent):
+                selected_item = selected_items[0]
+                values = self.my_tree.item(selected_item, "values")
+                selected_order = self.data[int(values[-1])]
+                # print(selected_order)
+                print(db.update_product_quantity(selected_order["products"], add=True))
+                msg = db.delete_order(selected_order["id"])
+                if msg.startswith("تم"):
+                    messagebox.showinfo("نجاح", msg, parent=self.parent)
+                else:
+                    messagebox.showerror("خطأ", msg, parent=self.parent)
+                self.update_bills()
 
     def filter_results(self):
         self.my_tree.delete(*self.my_tree.get_children())

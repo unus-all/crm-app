@@ -227,23 +227,42 @@ class Database:
         except Exception as e:
             print(f"Error updating the order status: {e}")
 
-    def update_product_quantity(self, cart):
+    def update_product_quantity(self, cart, add=False):
         cursor = self.connection.cursor()
         try:
             for data in cart:
-                # Fetch the current available quantity
-                cursor.execute("SELECT available_quantity FROM products WHERE id = ?", (data["id"],))
-                current_quantity = cursor.fetchone()[0]
+                update = True
+                if add is False:
+                    # Fetch the current available quantity
+                    cursor.execute("SELECT available_quantity FROM products WHERE id = ?", (data["id"],))
+                    current_quantity = cursor.fetchone()[0]
 
-                # Calculate the new available quantity by subtracting the specified quantity
-                new_quantity = max(0, current_quantity - data["quantity"])
+                    # Calculate the new available quantity by subtracting the specified quantity
+                    new_quantity = max(0, current_quantity - float(data["quantity"]))
+                else:
+                    cursor.execute("SELECT available_quantity FROM products WHERE name = ? AND category = ?",
+                                   (data["product_name"], data["product_category"]))
 
-                # Update the product's available quantity
-                cursor.execute("""
-                                UPDATE products 
-                                SET available_quantity = ?, updated_at = datetime('now') 
-                                WHERE id = ?
-                            """, (new_quantity, data["id"]))
+                    result = cursor.fetchone()
+                    if result is not None:
+                        new_quantity = result[0] + float(data["quantity"])
+                    else:
+                        update = False
+                if update:
+                    if add is False:
+                        # Update the product's available quantity
+                        cursor.execute("""
+                                        UPDATE products 
+                                        SET available_quantity = ?, updated_at = datetime('now') 
+                                        WHERE id = ?
+                                    """, (new_quantity, data["id"]))
+                    else:
+                        cursor.execute("""
+                                               UPDATE products 
+                                               SET available_quantity = ?, updated_at = datetime('now') 
+                                               WHERE name = ? AND category = ?
+                                               """, (new_quantity, data["product_name"],
+                                                     data["product_category"]))
 
             self.connection.commit()
             print("Products updated successfully")
@@ -254,5 +273,13 @@ class Database:
             return "حدث خطأ أثناء تحديث السلع"
 
     def delete_order(self, order_id):
-        pass
-git 
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+            cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+
+            self.connection.commit()
+            return "تم حذف الطلب بنجاح .. يرجى التأكد من الكمية المتوفرة الخاصة بالسلع"
+        except Exception as e:
+            print(f"Error when deleting the order: {e}")
+            return "حدث خطأ أثناء حذف الطلب ..  .. يرجى التأكد من الكمية المتوفرة الخاصة بالسلع"
